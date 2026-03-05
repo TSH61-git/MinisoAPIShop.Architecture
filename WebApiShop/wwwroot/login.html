@@ -1,0 +1,141 @@
+﻿<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <script defer src="login.js"></script>
+    <title>myWebApi</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .cont {
+            display: flex;
+            flex-direction: column;
+            background-color: #ffffff;
+            padding: 2vw;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            align-items: stretch;
+            width: 260px;
+        }
+
+        input[type="radio"] {
+            display: none;
+        }
+
+        .section {
+            display: none;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        #login:checked ~ .cont #existUser,
+        #register:checked ~ .cont #newUser {
+            display: flex;
+        }
+
+        h3 {
+            margin-bottom: 1rem;
+            color: #4a6fa5;
+            text-align: center;
+        }
+
+        label {
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        input {
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+            input:focus {
+                border-color: #4a6fa5;
+                box-shadow: 0 0 5px rgba(74, 111, 165, 0.3);
+            }
+
+        button {
+            margin-top: 1rem;
+            padding: 0.6rem;
+            border: none;
+            border-radius: 6px;
+            background-color: #4a6fa5;
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+            button:hover {
+                background-color: #3b558c;
+            }
+
+        label.toggle {
+            margin-top: 1rem;
+            text-align: center;
+            color: blue;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        #progressBar {
+            width: 100%;
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 8px;
+            appearance: none;
+            -webkit-appearance: none;
+            background-color: #e0e0e0;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <input type="radio" id="login" name="toggle" checked>
+    <input type="radio" id="register" name="toggle">
+
+    <div class="cont">
+        <div class="existUser section" id="existUser">
+            <h3>משתמש רשום</h3>
+            <label>שם משתמש</label>
+            <input type="email" id="loginUserName" required />
+            <label>סיסמא</label>
+            <input type="password" id="loginUserPassword" required />
+            <button onClick="login()">שליחה</button>
+            <label for="register" class="toggle">משתמש חדש?</label>
+        </div>
+
+        <div class="newUser section" id="newUser">
+            <h3>משתמש חדש</h3>
+            <label for="userName">שם משתמש</label>
+            <input type="email" id="userName" name="userName" required />
+            <label for="firstName">שם פרטי</label>
+            <input type="text" id="firstName" name="firstName" required />
+            <label for="lastName">שם משפחה</label>
+            <input type="text" id="lastName" name="lastName" required />
+            <label for="password">סיסמא</label>
+            <input type="password" id="password" name="password" required />
+            <button onClick="checkStrength()"> בדוק חוזק סיסמא </button>
+            <progress id="progressBar" value="0" max="100"></progress>
+            <button onClick="register()">שליחה</button>
+            <label for="login" class="toggle">כבר רשום?</label>
+        </div>
+    </div>
+</body>
+</html>
+
