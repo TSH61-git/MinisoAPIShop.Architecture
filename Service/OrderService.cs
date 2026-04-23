@@ -3,11 +3,14 @@ using DTOs;
 using Entities;
 using NuGet.Protocol.Core.Types;
 using Repository;
+using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 
 namespace Service
 {
@@ -15,21 +18,54 @@ namespace Service
     {
         private readonly IOrderRepository _orderRepository;
         private readonly IMapper _mapper;
+        private readonly IDatabase _cache;
+        private readonly IConfiguration _configuration;
 
-        public OrderService(IOrderRepository orderRepository, IMapper mapper)
+        public OrderService(IOrderRepository orderRepository, IMapper mapper, IConnectionMultiplexer redis, IConfiguration configuration)
         {
             _orderRepository = orderRepository;
             _mapper = mapper;
+            _cache = redis.GetDatabase();
+            _configuration = configuration;
         }
 
         public async Task<IEnumerable<Order>> GetAllOrdersAsync()
         {
-            return await _orderRepository.GetAllOrdersAsync();
+            string cacheKey = "orders_all";
+            
+            var cachedOrders = await _cache.StringGetAsync(cacheKey);
+            if (!cachedOrders.IsNullOrEmpty)
+            {
+                return JsonSerializer.Deserialize<List<Order>>(cachedOrders);
+            }
+
+            var orders = await _orderRepository.GetAllOrdersAsync();
+            var ordersList = orders.ToList();
+
+            var ttlMinutes = _configuration.GetValue<int>("CacheSettings:DefaultTTLInMinutes");
+            string jsonOrders = JsonSerializer.Serialize(ordersList);
+            await _cache.StringSetAsync(cacheKey, jsonOrders, TimeSpan.FromMinutes(ttlMinutes));
+
+            return ordersList;
         }
         public async Task<IEnumerable<OrderReadDTO>> GetOrdersByUserIdAsync(int userId)
         {
+            string cacheKey = $"orders_userId_{userId}";
+
+            var cachedOrders = await _cache.StringGetAsync(cacheKey);
+            if (!cachedOrders.IsNullOrEmpty)
+            {
+                return JsonSerializer.Deserialize<List<OrderReadDTO>>(cachedOrders);
+            }
+
             var orders = await _orderRepository.GetOrdersByUserIdAsync(userId);
-            return _mapper.Map<IEnumerable<OrderReadDTO>>(orders);
+            var ordersDto = _mapper.Map<List<OrderReadDTO>>(orders);
+
+            var ttlMinutes = _configuration.GetValue<int>("CacheSettings:DefaultTTLInMinutes");
+            string jsonOrders = JsonSerializer.Serialize(ordersDto);
+            await _cache.StringSetAsync(cacheKey, jsonOrders, TimeSpan.FromMinutes(ttlMinutes));
+
+            return ordersDto;
         }
 
         public async Task<OrderReadDTO> addOrder(OrderCreateDTO orderDto)
@@ -38,6 +74,10 @@ namespace Service
             order.OrderDate = DateOnly.FromDateTime(DateTime.Now);
             order.Status = "Accepted";
             Order newOrder = await _orderRepository.AddOrder(order);
+            
+            await _cache.KeyDeleteAsync("orders_all");
+            await _cache.KeyDeleteAsync($"orders_userId_{newOrder.UserId}");
+            
             return _mapper.Map<OrderReadDTO>(newOrder);
         }
 
@@ -46,20 +86,23 @@ namespace Service
             var order = await _orderRepository.GetByIdAsync(orderId);
             if (order == null) return false;
 
-            // נעילה אחרי Received
             if (order.Status == "Received")
                 throw new InvalidOperationException("אי אפשר לשנות אחרי Received");
 
-            // אם לקוח לחץ קיבלתי
             if (dto.Received)
             {
                 if (order.Status != "Delivered")
                     throw new InvalidOperationException("אפשר לסמן קיבלתי רק אחרי Delivered");
 
-                return await _orderRepository.UpdateOrderStatusAsync(orderId, "Received");
+                var result = await _orderRepository.UpdateOrderStatusAsync(orderId, "Received");
+                if (result)
+                {
+                    await _cache.KeyDeleteAsync("orders_all");
+                    await _cache.KeyDeleteAsync($"orders_userId_{order.UserId}");
+                }
+                return result;
             }
 
-            // שינוי רגיל
             if (string.IsNullOrWhiteSpace(dto.Status))
                 throw new ArgumentException("Status חסר");
 
@@ -68,7 +111,13 @@ namespace Service
             if (!allowed.Contains(dto.Status))
                 throw new ArgumentException("סטטוס לא חוקי");
 
-            return await _orderRepository.UpdateOrderStatusAsync(orderId, dto.Status);
+            var updateResult = await _orderRepository.UpdateOrderStatusAsync(orderId, dto.Status);
+            if (updateResult)
+            {
+                await _cache.KeyDeleteAsync("orders_all");
+                await _cache.KeyDeleteAsync($"orders_userId_{order.UserId}");
+            }
+            return updateResult;
         }
     }
 }
