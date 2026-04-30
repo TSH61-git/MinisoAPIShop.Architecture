@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using DTOs;
 using Entities;
+using Order = Entities.Order;
 using NuGet.Protocol.Core.Types;
 using Repository;
 using StackExchange.Redis;
