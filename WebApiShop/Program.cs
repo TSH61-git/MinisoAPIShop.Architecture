@@ -10,10 +10,8 @@ using NLog.Web;
 using Repository;
 using Service;
 using StackExchange.Redis;
-using StackExchange.Redis;
 using System.Text;
 using WebApiShop.MiddleWare;
-using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +19,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 
+builder.Services.AddHttpClient();
 
 builder.Services.AddScoped<IUserService, UserService>();
 
@@ -49,7 +48,7 @@ builder.Services.AddScoped<IRatingRepository, RatingRepository>();
 builder.Services.AddScoped<IRatingService, RatingService>();
 
 builder.Services.AddDbContext<Repository.MyWebApiShopContext>
-    (option=> option.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    (option => option.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
@@ -97,16 +96,8 @@ builder.Services.AddOpenApi(options =>
     });
 });
 
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("CorsPolicy", builder =>
-    {
-        builder.WithOrigins("http://localhost:4200")
-               .AllowAnyHeader()
-               .AllowAnyMethod();
-    });
-});
+builder.Services.AddCors(o => o.AddDefaultPolicy(
+    p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
 builder.Host.UseNLog();
 
@@ -164,7 +155,6 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-
 app.UseHttpsRedirection();
 
 app.UseMiddleware<RateLimitingMiddleware>();
@@ -177,7 +167,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-app.UseCors("CorsPolicy");
+app.UseCors();
 
 app.UseAuthentication();
 
