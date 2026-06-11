@@ -4,7 +4,7 @@ using DTOs;
 using Entities;
 using Order = Entities.Order;
 using Repository;
-using StackExchange.Redis;
+using StackExchange.Redis; 
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 
@@ -79,7 +79,8 @@ namespace Service
 
             var readDto = _mapper.Map<OrderReadDTO>(newOrder);
 
-            await _producer.ProduceAsync("order-events", new Message<string, string>
+            
+            await _producer.ProduceAsync("order-events", new Confluent.Kafka.Message<string, string>
             {
                 Key = newOrder.OrderId.ToString(),
                 Value = JsonSerializer.Serialize(readDto)
