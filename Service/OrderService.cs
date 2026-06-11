@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Confluent.Kafka;
 using DTOs;
 using Entities;
 using Order = Entities.Order;
@@ -15,13 +16,15 @@ namespace Service
         private readonly IMapper _mapper;
         private readonly IDatabase _cache;
         private readonly IConfiguration _configuration;
+        private readonly IProducer<string, string> _producer;
 
-        public OrderService(IOrderRepository orderRepository, IMapper mapper, IConnectionMultiplexer redis, IConfiguration configuration)
+        public OrderService(IOrderRepository orderRepository, IMapper mapper, IConnectionMultiplexer redis, IConfiguration configuration, IProducer<string, string> producer)
         {
             _orderRepository = orderRepository;
             _mapper = mapper;
             _cache = redis.GetDatabase();
             _configuration = configuration;
+            _producer = producer;
         }
 
         public async Task<IEnumerable<OrderReadDTO>> GetAllOrdersAsync()
@@ -74,7 +77,15 @@ namespace Service
             await _cache.KeyDeleteAsync("orders_all");
             await _cache.KeyDeleteAsync($"orders_userId_{newOrder.UserId}");
 
-            return _mapper.Map<OrderReadDTO>(newOrder);
+            var readDto = _mapper.Map<OrderReadDTO>(newOrder);
+
+            await _producer.ProduceAsync("order-events", new Message<string, string>
+            {
+                Key = newOrder.OrderId.ToString(),
+                Value = JsonSerializer.Serialize(readDto)
+            });
+
+            return readDto;
         }
 
         public async Task<bool> UpdateOrderStatusAsync(int orderId, ChangeOrderStatusDto dto)

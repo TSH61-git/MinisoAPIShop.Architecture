@@ -9,6 +9,7 @@ using Microsoft.OpenApi.Models;
 using NLog.Web;
 using Repository;
 using Service;
+using Confluent.Kafka;
 using StackExchange.Redis;
 using System.Text;
 using WebApiShop.MiddleWare;
@@ -112,6 +113,11 @@ var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
     ConnectionMultiplexer.Connect(redisConnectionString));
+
+builder.Services.AddSingleton<IProducer<string, string>>(_ =>
+    new ProducerBuilder<string, string>(
+        new ProducerConfig { BootstrapServers = builder.Configuration["Kafka:BootstrapServers"] }
+    ).Build());
 
 builder.Services.AddAuthentication(options =>
 {
